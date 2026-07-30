@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ฟอร์มทำบุญออนไลน์</title>
+<title>Online Merit-Making Form / 在线布施表单</title>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
   body {
-    font-family: 'Sarabun', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
     background: #FAF7F2;
     margin: 0;
     padding: 16px;
@@ -19,12 +19,19 @@
     text-align: center;
     margin-bottom: 4px;
   }
+  h1 .zh {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+    margin-top: 2px;
+  }
   p.sub {
     text-align: center;
     font-size: 13px;
     color: #888;
     margin-top: 0;
     margin-bottom: 16px;
+    line-height: 1.5;
   }
   .item {
     background: #fff;
@@ -45,6 +52,11 @@
   .item-header label {
     font-size: 15px;
     font-weight: 600;
+  }
+  .item-header label .zh {
+    font-weight: 400;
+    color: #666;
+    font-size: 13px;
   }
   .amounts {
     display: none;
@@ -93,42 +105,56 @@
 </head>
 <body>
 
-<h1>🙏 ทำบุญออนไลน์</h1>
-<p class="sub">เลือกรายการที่ต้องการทำบุญ แล้วกรอกจำนวนเงิน (ใส่เฉพาะสกุลที่ต้องการโอน)</p>
+<h1>🙏 Online Merit-Making<span class="zh">在线布施</span></h1>
+<p class="sub">
+  Select the item(s) you wish to donate and enter the amount (only fill in the currency you are transferring).<br>
+  请选择您要布施的项目并填写金额（只需填写您要转账的币种）。
+</p>
 
 <div id="itemsContainer"></div>
 
-<button id="submitBtn">ยืนยันรายการ</button>
+<button id="submitBtn">Confirm / 确认提交</button>
 <div id="status"></div>
 
 <script>
-  // *** ตั้งค่า URL ของ Apps Script Web App ที่ deploy ไว้ ***
+  // *** Set the deployed Apps Script Web App URL below ***
+  // *** 请在下方设置已部署的 Apps Script Web App 网址 ***
   const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzR_t1e-pC8BjPygFTp2as78PV58IkGXsPM0ACLSpA74TjeIx_BjgQRCH4hQUz_cg3u/exec';
   const LIFF_ID = '2010905551-6MneH9FK';
 
+  // Each merit item has an English (en) and Chinese (zh) label.
+  // 每个功德项目都有英文（en）和中文（zh）标签。
   const MERIT_ITEMS = [
-    'บูชาข้าวพระ',
-    'บุญถวายผ้าป่า',
-    'บุญถวายผ้าไตรจีวร',
-    'บุญถวายยา',
-    'บุญถวายประทีป',
-    'บุญอุทิศส่วนกุศลแด่ผู้ล่วงลับ',
-    'บุญอื่นๆ'
+    { en: 'Offering rice to Buddha image', zh: '供佛饭' },
+    { en: 'Pha Pa robe offering', zh: '布施袈裟林（帕巴）' },
+    { en: 'Monk robe (Tri-civara) offering', zh: '供养三衣（僧袍）' },
+    { en: 'Medicine offering', zh: '供养药品' },
+    { en: 'Lamp/light offering', zh: '供养光明灯' },
+    { en: 'Merit dedication to the deceased', zh: '功德回向亡者' },
+    { en: 'Other merit', zh: '其他功德' }
   ];
+
+  // Build a combined "English / Chinese" label used both for display and
+  // for the value sent to the backend (kept in sync with code1_en_zh.gs).
+  // 构建用于显示、并发送给后端的“英文 / 中文”组合标签
+  // （与 code1_en_zh.gs 中的命名保持一致）。
+  function bilingualLabel(item) {
+    return item.en + ' / ' + item.zh;
+  }
 
   const container = document.getElementById('itemsContainer');
 
-  MERIT_ITEMS.forEach(function (name, idx) {
+  MERIT_ITEMS.forEach(function (item, idx) {
     const div = document.createElement('div');
     div.className = 'item';
     div.innerHTML =
       '<div class="item-header">' +
         '<input type="checkbox" id="chk' + idx + '">' +
-        '<label for="chk' + idx + '">' + name + '</label>' +
+        '<label for="chk' + idx + '">' + item.en + '<span class="zh"> / ' + item.zh + '</span></label>' +
       '</div>' +
       '<div class="amounts">' +
-        '<div class="field"><span>บาท (THB)</span><input type="number" min="0" id="thb' + idx + '" placeholder="0"></div>' +
-        '<div class="field"><span>ริงกิต (MYR)</span><input type="number" min="0" id="myr' + idx + '" placeholder="0"></div>' +
+        '<div class="field"><span>THB / 泰铢</span><input type="number" min="0" id="thb' + idx + '" placeholder="0"></div>' +
+        '<div class="field"><span>MYR / 令吉</span><input type="number" min="0" id="myr' + idx + '" placeholder="0"></div>' +
       '</div>';
     container.appendChild(div);
 
@@ -141,9 +167,10 @@
 
   function collectItems() {
     const items = [];
-    MERIT_ITEMS.forEach(function (name, idx) {
+    MERIT_ITEMS.forEach(function (item, idx) {
       const checked = document.getElementById('chk' + idx).checked;
       if (!checked) return;
+      const name = bilingualLabel(item);
       const thb = Number(document.getElementById('thb' + idx).value) || 0;
       const myr = Number(document.getElementById('myr' + idx).value) || 0;
       if (thb > 0) items.push({ name: name, amount: thb, currency: 'THB' });
@@ -155,12 +182,13 @@
   function submitForm() {
     const items = collectItems();
     if (items.length === 0) {
-      document.getElementById('status').textContent = 'กรุณาเลือกรายการและกรอกจำนวนเงินอย่างน้อย 1 รายการ';
+      document.getElementById('status').textContent =
+        'Please select at least one item and enter an amount. / 请至少选择一项并填写金额。';
       return;
     }
 
     document.getElementById('submitBtn').disabled = true;
-    document.getElementById('status').textContent = 'กำลังบันทึกข้อมูล...';
+    document.getElementById('status').textContent = 'Saving... / 正在保存...';
 
     liff.getProfile().then(function (profile) {
   return fetch(WEBAPP_URL, {
@@ -175,18 +203,19 @@
     })
   });
 }).then(function () {
-  document.getElementById('status').textContent = 'บันทึกสำเร็จ กำลังปิดหน้าต่าง...';
+  document.getElementById('status').textContent = 'Saved. Closing window... / 保存成功，正在关闭窗口...';
   setTimeout(function () {
     liff.closeWindow();
   }, 1200);
 }).catch(function (err) {
-  document.getElementById('status').textContent = 'เกิดข้อผิดพลาด: ' + (err && err.message ? err.message : err);
+  document.getElementById('status').textContent =
+    'Error / 出错了: ' + (err && err.message ? err.message : err);
   document.getElementById('submitBtn').disabled = false;
 });
   }
 
   liff.init({ liffId: LIFF_ID }).catch(function (err) {
-    document.getElementById('status').textContent = 'ไม่สามารถเชื่อมต่อ LIFF ได้: ' + err;
+    document.getElementById('status').textContent = 'Unable to connect to LIFF / 无法连接 LIFF: ' + err;
   });
 </script>
 
