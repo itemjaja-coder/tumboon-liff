@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ฟอร์มทำบุญออนไลน์</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  body {
+    font-family: 'Sarabun', sans-serif;
+    background: #FAF7F2;
+    margin: 0;
+    padding: 16px;
+    color: #3A3A3A;
+  }
+  h1 {
+    font-size: 18px;
+    color: #8A6D3B;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  p.sub {
+    text-align: center;
+    font-size: 13px;
+    color: #888;
+    margin-top: 0;
+    margin-bottom: 16px;
+  }
+  .item {
+    background: #fff;
+    border: 1px solid #EADFCB;
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  .item-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .item-header input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+  }
+  .item-header label {
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .amounts {
+    display: none;
+    margin-top: 10px;
+    gap: 8px;
+  }
+  .item.active .amounts {
+    display: flex;
+  }
+  .amounts .field {
+    flex: 1;
+  }
+  .amounts .field span {
+    font-size: 12px;
+    color: #888;
+  }
+  .amounts input[type="number"] {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px;
+    border: 1px solid #DDD;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  #submitBtn {
+    width: 100%;
+    padding: 14px;
+    background: #B08D57;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    margin-top: 12px;
+  }
+  #submitBtn:disabled {
+    background: #ccc;
+  }
+  #status {
+    text-align: center;
+    font-size: 13px;
+    margin-top: 10px;
+    color: #666;
+  }
+</style>
+</head>
+<body>
+
+<h1>🙏 ทำบุญออนไลน์</h1>
+<p class="sub">เลือกรายการที่ต้องการทำบุญ แล้วกรอกจำนวนเงิน (ใส่เฉพาะสกุลที่ต้องการโอน)</p>
+
+<div id="itemsContainer"></div>
+
+<button id="submitBtn">ยืนยันรายการ</button>
+<div id="status"></div>
+
+<script>
+  // *** ตั้งค่า URL ของ Apps Script Web App ที่ deploy ไว้ ***
+  const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbzR_t1e-pC8BjPygFTp2as78PV58IkGXsPM0ACLSpA74TjeIx_BjgQRCH4hQUz_cg3u/exec';
+  const LIFF_ID = 'YOUR_LIFF_ID';
+
+  const MERIT_ITEMS = [
+    'บูชาข้าวพระ',
+    'บุญถวายผ้าป่า',
+    'บุญถวายผ้าไตรจีวร',
+    'บุญถวายยา',
+    'บุญถวายประทีป',
+    'บุญอุทิศส่วนกุศลแด่ผู้ล่วงลับ',
+    'บุญอื่นๆ'
+  ];
+
+  const container = document.getElementById('itemsContainer');
+
+  MERIT_ITEMS.forEach(function (name, idx) {
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.innerHTML =
+      '<div class="item-header">' +
+        '<input type="checkbox" id="chk' + idx + '">' +
+        '<label for="chk' + idx + '">' + name + '</label>' +
+      '</div>' +
+      '<div class="amounts">' +
+        '<div class="field"><span>บาท (THB)</span><input type="number" min="0" id="thb' + idx + '" placeholder="0"></div>' +
+        '<div class="field"><span>ริงกิต (MYR)</span><input type="number" min="0" id="myr' + idx + '" placeholder="0"></div>' +
+      '</div>';
+    container.appendChild(div);
+
+    div.querySelector('#chk' + idx).addEventListener('change', function (ev) {
+      div.classList.toggle('active', ev.target.checked);
+    });
+  });
+
+  document.getElementById('submitBtn').addEventListener('click', submitForm);
+
+  function collectItems() {
+    const items = [];
+    MERIT_ITEMS.forEach(function (name, idx) {
+      const checked = document.getElementById('chk' + idx).checked;
+      if (!checked) return;
+      const thb = Number(document.getElementById('thb' + idx).value) || 0;
+      const myr = Number(document.getElementById('myr' + idx).value) || 0;
+      if (thb > 0) items.push({ name: name, amount: thb, currency: 'THB' });
+      if (myr > 0) items.push({ name: name, amount: myr, currency: 'MYR' });
+    });
+    return items;
+  }
+
+  function submitForm() {
+    const items = collectItems();
+    if (items.length === 0) {
+      document.getElementById('status').textContent = 'กรุณาเลือกรายการและกรอกจำนวนเงินอย่างน้อย 1 รายการ';
+      return;
+    }
+
+    document.getElementById('submitBtn').disabled = true;
+    document.getElementById('status').textContent = 'กำลังบันทึกข้อมูล...';
+
+    liff.getProfile().then(function (profile) {
+      return fetch(WEBAPP_URL, {
+        method: 'POST',
+        // ใช้ text/plain เพื่อเลี่ยง CORS preflight (OPTIONS) ซึ่ง Apps Script Web App ไม่รองรับ
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          source: 'liff',
+          userId: profile.userId,
+          displayName: profile.displayName,
+          items: items
+        })
+      });
+    }).then(function () {
+      document.getElementById('status').textContent = 'บันทึกสำเร็จ กำลังปิดหน้าต่าง...';
+      setTimeout(function () {
+        liff.closeWindow();
+      }, 1200);
+    }).catch(function (err) {
+      document.getElementById('status').textContent = 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+      document.getElementById('submitBtn').disabled = false;
+    });
+  }
+
+  liff.init({ liffId: LIFF_ID }).catch(function (err) {
+    document.getElementById('status').textContent = 'ไม่สามารถเชื่อมต่อ LIFF ได้: ' + err;
+  });
+</script>
+
+</body>
+</html>
