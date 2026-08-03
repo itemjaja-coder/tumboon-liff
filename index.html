@@ -83,6 +83,27 @@
     border-radius: 6px;
     font-size: 14px;
   }
+  .note-field {
+    display: none;
+    margin-top: 8px;
+  }
+  .item.active .note-field {
+    display: block;
+  }
+  .note-field span {
+    font-size: 12px;
+    color: #888;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .note-field input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px;
+    border: 1px solid #DDD;
+    border-radius: 6px;
+    font-size: 14px;
+  }
   #submitBtn {
     width: 100%;
     padding: 14px;
@@ -153,6 +174,7 @@
     const div = document.createElement('div');
     div.className = 'item';
     const zhEnLine = item.zh ? (item.zh + ' ' + item.en) : item.en;
+    const isOthers = item.en === 'OTHERS';
     div.innerHTML =
       '<div class="item-header">' +
         '<input type="checkbox" id="chk' + idx + '">' +
@@ -161,7 +183,10 @@
       '<div class="amounts">' +
         '<div class="field"><span>THB / 泰铢 / บาท</span><input type="number" min="0" id="thb' + idx + '" placeholder="0"></div>' +
         '<div class="field"><span>MYR / 令吉 / ริงกิต</span><input type="number" min="0" id="myr' + idx + '" placeholder="0"></div>' +
-      '</div>';
+      '</div>' +
+      (isOthers
+        ? '<div class="note-field"><span>Details / 详情 / รายละเอียด</span><input type="text" id="note' + idx + '" placeholder="Please specify / 请说明 / โปรดระบุ"></div>'
+        : '');
     container.appendChild(div);
 
     div.querySelector('#chk' + idx).addEventListener('change', function (ev) {
@@ -171,16 +196,24 @@
 
   document.getElementById('submitBtn').addEventListener('click', submitForm);
 
+  // Builds ONE entry per ticked item (not per currency) — this is what makes
+  // the backend generate exactly one certificate per ticked item. Both THB and
+  // MYR amounts for that item travel together in the same entry, and the
+  // "OTHERS" item also carries whatever free-text detail was typed.
+  // 每个被勾选的项目只生成一条记录（而不是每种货币一条）——这样后端才能
+  // 为每个勾选项目各生成一张证书。同一项目的泰铢和令吉金额放在同一条记录里，
+  // "OTHERS"（其他）项目还会附带用户填写的详细说明文字。
   function collectItems() {
     const items = [];
     MERIT_ITEMS.forEach(function (item, idx) {
       const checked = document.getElementById('chk' + idx).checked;
       if (!checked) return;
-      const name = trilingualLabel(item);
       const thb = Number(document.getElementById('thb' + idx).value) || 0;
       const myr = Number(document.getElementById('myr' + idx).value) || 0;
-      if (thb > 0) items.push({ name: name, amount: thb, currency: 'THB' });
-      if (myr > 0) items.push({ name: name, amount: myr, currency: 'MYR' });
+      if (thb <= 0 && myr <= 0) return; // ticked but no amount entered — skip
+      const noteEl = document.getElementById('note' + idx);
+      const note = noteEl ? noteEl.value.trim() : '';
+      items.push({ name: trilingualLabel(item), thb: thb, myr: myr, note: note });
     });
     return items;
   }
