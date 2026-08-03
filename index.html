@@ -103,54 +103,6 @@
     margin-top: 10px;
     color: #666;
   }
-  .bank-section {
-    background: #fff;
-    border: 1px solid #EADFCB;
-    border-radius: 10px;
-    padding: 14px;
-    margin-bottom: 14px;
-    text-align: center;
-  }
-  .bank-section h2 {
-    font-size: 15px;
-    color: #8A6D3B;
-    margin: 0 0 8px;
-  }
-  .bank-section .bank-name {
-    font-size: 13px;
-    color: #666;
-    margin: 0 0 10px;
-  }
-  .account-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin-bottom: 12px;
-    flex-wrap: wrap;
-  }
-  .account-row span {
-    font-size: 17px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-  }
-  .account-row button {
-    padding: 6px 14px;
-    background: #B08D57;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .qr-image {
-    width: 160px;
-    max-width: 60%;
-    display: block;
-    margin: 0 auto;
-    border-radius: 8px;
-  }
 </style>
 </head>
 <body>
@@ -162,16 +114,6 @@
 </p>
 
 <div id="itemsContainer"></div>
-
-<div class="bank-section">
-  <h2>Bank Transfer / 银行转账 / โอนเงินผ่านธนาคาร</h2>
-  <p class="bank-name">Persatuan Meditasi Dhammakaya Malaysia</p>
-  <div class="account-row">
-    <span id="accountNumber">5074 2462 2740</span>
-    <button id="copyBtn" type="button">Copy / 复制 / คัดลอก</button>
-  </div>
-  <img src="duitnow-qr.png" alt="DuitNow QR" class="qr-image">
-</div>
 
 <button id="submitBtn">Confirm / 确认提交</button>
 <div id="status"></div>
@@ -228,46 +170,6 @@
   });
 
   document.getElementById('submitBtn').addEventListener('click', submitForm);
-
-  // Bank account number with spaces removed, for pasting into banking apps.
-  // 去除空格后的账号，方便粘贴到银行 App。
-  const ACCOUNT_NUMBER_RAW = '507424622740';
-
-  document.getElementById('copyBtn').addEventListener('click', function () {
-    const btn = document.getElementById('copyBtn');
-    const showCopied = function () {
-      const original = 'Copy / 复制 / คัดลอก';
-      btn.textContent = 'Copied! / 已复制 / คัดลอกแล้ว';
-      setTimeout(function () { btn.textContent = original; }, 1500);
-    };
-
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(ACCOUNT_NUMBER_RAW).then(showCopied).catch(function () {
-        copyFallback(ACCOUNT_NUMBER_RAW, showCopied);
-      });
-    } else {
-      copyFallback(ACCOUNT_NUMBER_RAW, showCopied);
-    }
-  });
-
-  // Fallback copy method for older in-app browsers without the Clipboard API.
-  // 针对不支持 Clipboard API 的旧版内置浏览器的备用复制方式。
-  function copyFallback(text, onDone) {
-    const temp = document.createElement('textarea');
-    temp.value = text;
-    temp.style.position = 'fixed';
-    temp.style.opacity = '0';
-    document.body.appendChild(temp);
-    temp.focus();
-    temp.select();
-    try {
-      document.execCommand('copy');
-    } catch (e) {
-      // ignore; nothing more we can do here
-    }
-    document.body.removeChild(temp);
-    onDone();
-  }
 
   function collectItems() {
     const items = [];
