@@ -130,8 +130,8 @@
 
 <h1>🙏 Online Merit-Making<span class="zh">在线布施</span></h1>
 <p class="sub">
-  Select the item(s) you wish to donate and enter the amount (only fill in the currency you are transferring).<br>
-  请选择您要布施的项目并填写金额（只需填写您要转账的币种）。
+  Select the item(s) you wish to donate and enter the amount in MYR (Ringgit).<br>
+  请选择您要布施的项目并填写令吉（MYR）金额。
 </p>
 
 <div id="itemsContainer"></div>
@@ -148,7 +148,16 @@
   // Each merit item has a Chinese (zh), English (en), and Thai (th) label,
   // matching the printed donation form. zh is '' for items that only ever
   // appear in EN/TH on the printed form (e.g. PHAPA).
+  //
+  // ⚠️ The "en" value here is sent to the backend as each item's unique "key"
+  // (used to match it to its own certificate template in final.gs). It must
+  // exactly match the "en" value for the same item in final.gs's MERIT_ITEMS list.
+  //
   // 每个功德项目都有中文（zh）、英文（en）、泰文（th）标签，与纸质表格保持一致。
+  //
+  // ⚠️ 这里的 "en" 值会作为该项目的唯一 "key" 发送给后端（用于在 final.gs 中
+  // 匹配到该项目专属的证书模板）。必须与 final.gs 的 MERIT_ITEMS 列表中
+  // 同一项目的 "en" 值完全一致。
   const MERIT_ITEMS = [
     { zh: '荟供法会', en: 'FIRST SUNDAY', th: 'บุญบูชาข้าวพระ' },
     { zh: '', en: 'PHAPA', th: 'บุญถวายผ้าป่า' },
@@ -181,7 +190,6 @@
         '<label for="chk' + idx + '">' + zhEnLine + '<span class="th">' + item.th + '</span></label>' +
       '</div>' +
       '<div class="amounts">' +
-        '<div class="field"><span>THB / 泰铢 / บาท</span><input type="number" min="0" id="thb' + idx + '" placeholder="0"></div>' +
         '<div class="field"><span>MYR / 令吉 / ริงกิต</span><input type="number" min="0" id="myr' + idx + '" placeholder="0"></div>' +
       '</div>' +
       (isOthers
@@ -197,23 +205,24 @@
   document.getElementById('submitBtn').addEventListener('click', submitForm);
 
   // Builds ONE entry per ticked item (not per currency) — this is what makes
-  // the backend generate exactly one certificate per ticked item. Both THB and
-  // MYR amounts for that item travel together in the same entry, and the
-  // "OTHERS" item also carries whatever free-text detail was typed.
+  // the backend generate exactly one certificate per ticked item. "key" is the
+  // item's unique "en" tag (used to match its own certificate template), and
+  // the "OTHERS" item also carries whatever free-text detail was typed.
+  // Only MYR (Ringgit) is collected — Thai Baht donations are no longer accepted.
   // 每个被勾选的项目只生成一条记录（而不是每种货币一条）——这样后端才能
-  // 为每个勾选项目各生成一张证书。同一项目的泰铢和令吉金额放在同一条记录里，
-  // "OTHERS"（其他）项目还会附带用户填写的详细说明文字。
+  // 为每个勾选项目各生成一张证书。"key" 是该项目唯一的 "en" 标识
+  // （用于匹配其专属证书模板），"OTHERS"（其他）项目还会附带用户填写的详细说明文字。
+  // 现在只收取令吉（MYR）—— 不再接受泰铢（THB）布施。
   function collectItems() {
     const items = [];
     MERIT_ITEMS.forEach(function (item, idx) {
       const checked = document.getElementById('chk' + idx).checked;
       if (!checked) return;
-      const thb = Number(document.getElementById('thb' + idx).value) || 0;
       const myr = Number(document.getElementById('myr' + idx).value) || 0;
-      if (thb <= 0 && myr <= 0) return; // ticked but no amount entered — skip
+      if (myr <= 0) return; // ticked but no amount entered — skip
       const noteEl = document.getElementById('note' + idx);
       const note = noteEl ? noteEl.value.trim() : '';
-      items.push({ name: trilingualLabel(item), thb: thb, myr: myr, note: note });
+      items.push({ name: trilingualLabel(item), key: item.en, myr: myr, note: note });
     });
     return items;
   }
@@ -230,27 +239,31 @@
     document.getElementById('status').textContent = 'Saving... / 正在保存...';
 
     liff.getProfile().then(function (profile) {
-  return fetch(WEBAPP_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({
-      source: 'liff',
-      userId: profile.userId,
-      displayName: profile.displayName,
-      items: items
-    })
-  });
-}).then(function () {
-  document.getElementById('status').textContent = 'Saved. Closing window... / 保存成功，正在关闭窗口...';
-  setTimeout(function () {
-    liff.closeWindow();
-  }, 1200);
-}).catch(function (err) {
-  document.getElementById('status').textContent =
-    'Error / 出错了: ' + (err && err.message ? err.message : err);
-  document.getElementById('submitBtn').disabled = false;
-});
+      return fetch(WEBAPP_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        // Uses text/plain to avoid a CORS preflight (OPTIONS), which the
+        // Apps Script Web App doesn't handle.
+        // 使用 text/plain 以避免 CORS 预检请求（OPTIONS）——
+        // Apps Script Web App 不支持处理该请求。
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          source: 'liff',
+          userId: profile.userId,
+          displayName: profile.displayName,
+          items: items
+        })
+      });
+    }).then(function () {
+      document.getElementById('status').textContent = 'Saved. Closing window... / 保存成功，正在关闭窗口...';
+      setTimeout(function () {
+        liff.closeWindow();
+      }, 1200);
+    }).catch(function (err) {
+      document.getElementById('status').textContent =
+        'Error / 出错了: ' + (err && err.message ? err.message : err);
+      document.getElementById('submitBtn').disabled = false;
+    });
   }
 
   liff.init({ liffId: LIFF_ID }).catch(function (err) {
